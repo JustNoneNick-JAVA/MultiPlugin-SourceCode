@@ -1,0 +1,110 @@
+name: MultiPlugin
+main: com.jnngl.plugins.tools.Plugin
+version: 2.0.025
+author: JNNGL
+commands:
+   usual:
+      description: OP or Member?
+      usage: /usual <message>
+   plus:
+      description: plus!
+      usage: /plus <num> <num>
+   status:
+      description: status....
+      usage: /status set <status> or /status get <player>
+   prefix:
+      description: (YOUR PREFIX) (RANK) NAME (MESSAGE)
+      usage: /prefix <prefix> or /prefix <prefix> <player>
+   reset:
+      description: Reset player prefix, suffix, chat allow/deny and advanced text allow/deny
+      usage: /reset <player>
+   rtp:
+      description: Random Teleportation.
+      usage: /rtp
+   bcc:
+      description: Advanced broadcast.
+      usage: /bcc <message>
+   suffix:
+      description: (RANK) NAME (YOUR SUFFIX) (MESSAGE)
+      usage: /suffix <suffix> or /suffix <suffix> <player>
+   minus:
+      description: minus!
+      usage: /minus <num> <num>
+   division:
+      description: division!
+      usage: /division <num> <num>
+   multiply:
+      description: multiply!
+      usage: /multiply <num> <num>
+   cos:
+      description: COS!
+      usage: /cos <number>
+   sin:
+      description: SIN!
+      usage: /sin <number>
+   java:
+      description: ...
+      usage: /java
+   windows:
+      description: ...
+      usage: /windows
+   NTFS:
+      description: ...
+      usage: /NTFS
+   vsh:
+      description: Vanish you.
+      usage: /vsh
+   bansh:
+      description: Ban player.
+      usage: /bansh <player> <reason>
+   fakedeop:
+      description: Tells "[Server ... De-pped]" to selected player
+      usage: /fakedeop <player>
+   broadcast:
+      description: broadcast message. (Bukkit.broadcast(...);)
+      usage: /broadcast <message>
+   warning:
+      description: WARNING!
+      usage: /warning <MESSAGE!>
+   exec:
+      description: arguments....
+      usage: /exec <msg> <player> <message>
+   firework:
+      description: FireWorks!
+      usage: /firework
+   msg_console:
+      description: Write in console "... wants to say something." or your message.
+      usage: /msg_console
+   tps:
+      description: Teleport player to spawn.
+      usage: /tps
+   kit:
+      description: Give selected kit to player.
+      usage: /kit <type>
+   chat:
+      description: Allow/deny chat/advancedText to player
+      usage: /chat <allow:deny> <chat:advanced> <player>
+   mpt_effect:
+      description: Display selected effect.
+      usage: /effect <type> <times>
+   info:
+      description: Show to you, your statistics.
+      usage: /info
+   menu:
+      description: Shows server menu
+      usage: /menu
+   trade:
+      description: Main command for trading.
+      usage: /trade <request:accept:deny> <playername>
+   fakejoin:
+      description: Tells "... joined!" to selected player
+      usage: /fakejoin <PlayerToTell> <whoJoin>
+   fakeleft:
+      description: Tells "... has left!" to selected player
+      usage: /fakeleft <PlayerToTell> <whoLeftn>
+   fakeop:
+      description: Tells "[Server ... Opped]" to selected player
+      usage: /fakeop <player>
+   getInv:
+      description: ONLY FOR OPS! Opens selected player inventory.
+      usage: /getInv <Player>
