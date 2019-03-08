@@ -1,8 +1,86 @@
 name: MultiPlugin
 main: com.jnngl.plugins.tools.Plugin
-version: 2.0.025
+version: 2.0.026
 author: JNNGL
 commands:
+   JNNJHL:
+      description: One more compiler.
+      usage: /JNNJHL <filename>
+   JNNJHLmsg:
+      description: JNNJHL compiler in minecraft.
+      usage: /JNNJHLmsg <code>
+   encode:
+      description: QmFzZTY0IEVuY29kZXIg
+      usage: /encode <text>
+   decode:
+      description: Base64 Decoder
+      usage: /decode <text>
+   UUID:
+      description: Player's UUID
+      usage: /UUID <player>
+   ANSII:
+      description: 065 078 083 073 073 032 069 110 099 111 100 101 114
+      usage: /ANSII <text>
+   fly:
+      description: Fly?
+      usage: /fly OR /fly <player>
+   gmc:
+      description: Creative
+      usage: /gmc OR /gmc <player>
+   gms:
+      description: Survival
+      usage: /gms OR /gms <player>
+   gma:
+      description: Adventure
+      usage: /gma OR /gma <player>
+   gmsp:
+      description: Spectator
+      usage: /gmsp OR /gmsp <player>
+   gm:
+      description: Gamemode
+      usage: /gm <gamemode> OR /gm <gamemode> <player>
+   feed:
+      description: Full food level.
+      usage: /feed OR /feed <player>
+   heal:
+      description: Full health level.
+      usage: /heal OR /heal <player>
+   afk:
+      description: Away From Keyboard.
+      usage: /afk
+   script:
+      description: What? Code compiler in a plugin!? Need's external library.
+      usage: /script <filename>
+   customtext:
+      description: Floating text. Before this command, use textconfig command.
+      usage: /customtext set <textname> OR /customtext remove <textname>
+   textconfig:
+      description: Setup for customtext command.
+      usage: /textconfig add <textname> <text> OR /textconfig remove <textname>
+   setwarp:
+      description: Command to setup warp.
+      usage: /setwarp <name>
+   delwarp:
+      description: Command to delete warp.
+      usage: /delwarp <name>
+   warps:
+      description: Command to view warp list.
+      usage: /warps
+   warp:
+      description: Command to teleport to warp.
+      usage: /warp <name>
+   sethome:
+      description: Command to setup home.
+      usage: /sethome <name>
+   delhome:
+      description: Command to delete home.
+      usage: /delhome <name>
+   home:
+      description: Command to teleport to home.
+      usage: /home <name>
+   world:
+      description: create world or teleport to other world.
+      usage: /world create <FLAT:AMPLIFIED:LARGE_BIOMES:NORMAL> <World name> <generate structures (true:false)> OR /world tp <World name> OR /world tp <World name> <player>
    usual:
       description: OP or Member?
       usage: /usual <message>
@@ -61,6 +139,9 @@ commands:
       description: Tells "[Server ... De-pped]" to selected player
       usage: /fakedeop <player>
    broadcast:
+      description: broadcast message. (Bukkit.broadcast(...);)
+      usage: /broadcast <message>
+   bc:
       description: broadcast message. (Bukkit.broadcast(...);)
       usage: /broadcast <message>
    warning:

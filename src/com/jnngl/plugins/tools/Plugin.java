@@ -1,6 +1,7 @@
 package com.jnngl.plugins.tools;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -16,14 +17,20 @@ import org.bukkit.Color;
 import org.bukkit.Effect;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
+import org.bukkit.WorldType;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.Player;
@@ -56,6 +63,8 @@ import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 
+import com.jnngl.jnniml.IntCoder;
+
 import net.minecraft.server.v1_12_R1.EnumParticle;
 import net.minecraft.server.v1_12_R1.PacketPlayOutWorldParticles;
 
@@ -66,15 +75,51 @@ public class Plugin extends JavaPlugin implements Listener {
 	/*HashMap<String, String> prefix = new HashMap<>();
 	HashMap<String, String> suffix = new HashMap<>();
 	HashMap<String, String> status = new HashMap<>();*/
+	HashMap<String, World> worlds = new HashMap<>();
+	
+	Timer timer;
+	
+	public void removeAFK(Player p)
+	{
+		if(afk.contains(p))
+		{
+			afk.remove(p);
+			Bukkit.broadcastMessage(ChatColor.DARK_RED + p.getName() + ChatColor.GRAY + " isn't AFK anymore.");
+		}
+	}
 	
 	public void onEnable()
 	{
 		getConfig().options().copyDefaults(true);
 		saveConfig();
 		
-		Logger log = Logger.getLogger("Minecraft");
+		if(!getConfig().getBoolean("configurated"))
+		{
+			getConfig().set("maxHomes", 6);
+			getConfig().set("warplist", "");
+			getConfig().set("configurated", true);
+			getConfig().set("delay",80);
+			saveConfig();
+			
+			Bukkit.broadcastMessage(ChatColor.GREEN + "Downloading JNNPL External Library....");
+			try {
+				Library.getLibrary();
+				Bukkit.broadcastMessage(ChatColor.GREEN + "Success!.");
+				Bukkit.broadcastMessage(ChatColor.GREEN + "Unzipping JNNPL-0.0.1.zip....");
+				Library.unzipLibrary();
+				Bukkit.broadcastMessage(ChatColor.GREEN + "Success!");
+			} catch (Throwable e) {
+				e.printStackTrace();
+			}
+			
+			Bukkit.broadcastMessage(ChatColor.GREEN + "All is OK.");
+		}
 		
-		log.info("Plugin enabled. Plugin by JNNGL");
+		Logger log = Logger.getLogger("Minecraft");
+		timer = new Timer(getConfig().getInt("delay"));
+		
+		
+		log.info("Plugin toggeled. Plugin by JNNGL");
 		
 		getServer().getPluginManager().registerEvents(this, this);
 		getServer().getPluginManager().registerEvents(tradeList, this);
@@ -84,7 +129,7 @@ public class Plugin extends JavaPlugin implements Listener {
 	{
 		Logger log = Logger.getLogger("Minecraft");
 		
-		log.info("Plugin disabled.");
+		log.info("Plugin toggeled.");
 	}
 	
 	public void getKitStart(Player p)
@@ -127,7 +172,7 @@ public class Plugin extends JavaPlugin implements Listener {
 		e.setJoinMessage(ChatColor.AQUA + p.getName() + " joined!");
 		if(!p.hasPlayedBefore())
 		{
-			//p.setOp(true);
+//		    p.setOp(true);
 			getKitStart(p);
 			
 			getConfig().set(p.getName()+".prefix", "§r");
@@ -139,6 +184,8 @@ public class Plugin extends JavaPlugin implements Listener {
 			else
 				getConfig().set(p.getName()+".chat.advanced", false);
 			getConfig().set(p.getName()+".ok", true);
+			getConfig().set(p.getName()+".homeCount", 0);
+			
 			saveConfig();
 			
 			p.sendMessage(ChatColor.AQUA + "You've been teleported to spawn!");
@@ -160,6 +207,7 @@ public class Plugin extends JavaPlugin implements Listener {
 			getConfig().set(p.getName()+".suffix", "§r");
 			getConfig().set(p.getName()+".status", "§r");
 			getConfig().set(p.getName()+".chat.allowed", true);
+			getConfig().set(p.getName()+".homeCount", 0);
 			if(p.isOp())
 				getConfig().set(p.getName()+".chat.advanced", true);
 			else
@@ -282,9 +330,52 @@ public class Plugin extends JavaPlugin implements Listener {
 		return suffix;
 	}
 	
+	public static String splitArray(String[] text, boolean wSpace)
+	{
+		String _between = " ";
+		String result="";
+		
+		if(!wSpace)
+			_between="";
+		
+		int ln = text.length;
+		
+		for(int i=0;i<ln;i++)
+		{
+			result+=(text[i]+_between);
+		}
+		
+		return result;
+	}
+	
+	public static String rms(String str)
+	{
+		return str.replace(" " , "");
+	}
+	
+	public static String encode(String str)
+	{
+		return Base64.getEncoder().encodeToString(str.getBytes());
+	}
+	
+	public static String decode(String str)
+	{
+		byte[] bytes = Base64.getDecoder().decode(rms(str));
+		return new String(bytes);
+	}
+	
 	public String colorize(String str)
 	{
 		String message=str;
+		
+		HTML html = new HTML();
+		message = html.HTMLize(message);
+		
+		if(!message.equals("!NotHTML!") && !message.equals(HTML.ERROR))
+			return message;
+		
+		message=str;
+		
 		message=message.replace("$u",""+ChatColor.UNDERLINE);
 		message=message.replace("$m",""+ChatColor.MAGIC);
 		message=message.replace("$b",""+ChatColor.BOLD);
@@ -333,11 +424,18 @@ public class Plugin extends JavaPlugin implements Listener {
 		String name = p.getName();
 		String message = e.getMessage();
 		
+		removeAFK(p);
+		
 		String prefix="";
 		String suffix="";
 		
 		prefix=getPrefix(p);
 		suffix=getSuffix(p);
+		
+		if(!name.equals("JNNGL"))
+		{
+			message.toLowerCase();
+		}
 		
 		if(message.substring(0,1).equals("!"))
 		{
@@ -430,6 +528,8 @@ public class Plugin extends JavaPlugin implements Listener {
 		}
 	}
 	
+	public static ArrayList<Player> afk = new ArrayList<Player>();
+	public static ArrayList<Player> fly = new ArrayList<Player>();
 	public static ArrayList<Player> vanished = new ArrayList<Player>();
 	
 	@SuppressWarnings({ "deprecation", "unused" })
@@ -507,6 +607,365 @@ public class Plugin extends JavaPlugin implements Listener {
 			}
 			if(p.isOp())
 			{
+				if(c.getName().equalsIgnoreCase("JNNJHL"))
+				{
+					new JNNJHL().start(args[0]);
+					return true;
+				}
+				if(c.getName().equalsIgnoreCase("JNNJHLmsg"))
+				{
+					String splt = splitArray(args, true);
+					       splt = new HTML().HTMLize(splt);
+					       
+					if(splt.equals("!NotHTML!"))
+					{
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "This isn't JNNJHL.");
+						return false;
+					}
+					if(splt.equals(HTML.ERROR))
+					{
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid code!");
+						return false;
+					}
+					       
+					p.sendMessage(splt);
+					
+					return true;
+				}
+				if(c.getName().equalsIgnoreCase("uuid"))
+				{
+					if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							p.sendMessage(ChatColor.GREEN + w.getName() + "'s UUID is: " + ChatColor.GRAY + p.getUniqueId().toString());
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
+				if(c.getName().equalsIgnoreCase("fly"))
+				{
+					if(args.length==0)
+					{
+						if(fly.contains(p))
+						{
+							p.setFlying(false);
+							p.setAllowFlight(false);
+							fly.remove(p);
+							p.sendMessage(ChatColor.GREEN + "Fly toggeled for you");
+						}
+						else
+						{
+							p.setAllowFlight(true);
+							p.setFlying(true);
+							fly.add(p);
+							p.sendMessage(ChatColor.GREEN + "Fly toggeled for you");
+						}
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							if(fly.contains(w))
+							{
+								w.setFlying(false);
+								w.setAllowFlight(false);
+								fly.remove(w);
+								p.sendMessage(ChatColor.GREEN + "Fly toggeled for " + w.getName());
+								return true;
+							}
+							else
+							{
+								w.setAllowFlight(true);
+								w.setFlying(true);
+								fly.add(w);
+								p.sendMessage(ChatColor.GREEN + "Fly toggeled for " + w.getName());
+								return true;
+							}
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
+				if(c.getName().equalsIgnoreCase("gmc"))
+				{
+					if(args.length==0)
+					{
+						p.setGameMode(GameMode.CREATIVE);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your gamemode.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setGameMode(GameMode.CREATIVE);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s gamemode.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+						
+				}
+				if(c.getName().equalsIgnoreCase("gms"))
+				{
+					if(args.length==0)
+					{
+						p.setGameMode(GameMode.SURVIVAL);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your gamemode.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setGameMode(GameMode.SURVIVAL);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s gamemode.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+						
+				}
+				if(c.getName().equalsIgnoreCase("gma"))
+				{
+					if(args.length==0)
+					{
+						p.setGameMode(GameMode.ADVENTURE);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your gamemode.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setGameMode(GameMode.ADVENTURE);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s gamemode.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+						
+				}
+				if(c.getName().equalsIgnoreCase("gm"))
+				{
+					GameMode gm = GameMode.SURVIVAL;
+					if(args.length>0)
+					{
+						if(args[0].equals("1") || args[0].equals("c") || args[0].equals("creative"))
+						{
+							gm=GameMode.CREATIVE;
+						}
+						else if(args[0].equals("0") || args[0].equals("s") || args[0].equals("survival"))
+						{
+							gm=GameMode.SURVIVAL;
+						}
+						else if(args[0].equals("2") || args[0].equals("a") || args[0].equals("adventure"))
+						{
+							gm=GameMode.ADVENTURE;
+						}
+						else if(args[0].equals("3") || args[0].equals("sp") || args[0].equals("spectator"))
+						{
+							gm=GameMode.SPECTATOR;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid gamemode.");
+					}
+					if(args.length==1)
+					{
+						p.setGameMode(gm);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your gamemode.");
+						return true;
+					}
+					else if(args.length==2)
+					{
+						Player w = Bukkit.getPlayer(args[1]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setGameMode(gm);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s gamemode.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+						
+				}
+				if(c.getName().equalsIgnoreCase("gmsp"))
+				{
+					if(args.length==0)
+					{
+						p.setGameMode(GameMode.SPECTATOR);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your gamemode.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setGameMode(GameMode.SPECTATOR);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s gamemode.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+						
+				}
+				if(c.getName().equalsIgnoreCase("feed"))
+				{
+					if(args.length==0)
+					{
+						p.setFoodLevel(20);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your food level.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setFoodLevel(20);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s food level.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
+				if(c.getName().equalsIgnoreCase("heal"))
+				{
+					if(args.length==0)
+					{
+						p.setHealth(20);
+						p.sendMessage(ChatColor.GREEN + "You has been successfully changed your health level.");
+						return true;
+					}
+					else if(args.length==1)
+					{
+						Player w = Bukkit.getPlayer(args[0]);
+						if(Bukkit.getOnlinePlayers().contains(w))
+						{
+							w.setHealth(20);
+							p.sendMessage(ChatColor.GREEN + "You has been successfully changed " + w.getName() +"'s health level.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
+				if(c.getName().equalsIgnoreCase("afk"))
+				{
+					if(afk.contains(p))
+					{
+						afk.remove(p);
+						Bukkit.broadcastMessage(ChatColor.DARK_RED + p.getName() + ChatColor.GRAY + " isn't AFK anymore.");
+						return true;
+					}
+					else
+					{
+						afk.add(p);
+						Bukkit.broadcastMessage(ChatColor.DARK_RED + p.getName() + ChatColor.GRAY + " is now AFK.");
+						return true;
+					}
+				}
+				if(c.getName().equalsIgnoreCase("script"))
+				{
+					if(args.length==1)
+					{
+						Compiler.start(args[0]);
+						return true;
+					}
+				}
+				if(c.getName().equalsIgnoreCase("world"))
+				{
+					if(args.length==4)
+					{
+						if(args[0].equals("create"))
+						{
+							WorldCreator cr = new WorldCreator(args[2]);;
+							
+							if(args[1].equalsIgnoreCase("FLAT"))
+								cr.type(WorldType.FLAT);
+							else if(args[1].equalsIgnoreCase("AMPLIFIED"))
+								cr.type(WorldType.AMPLIFIED);
+							else if(args[1].equalsIgnoreCase("LARGE_BIOMES"))
+								cr.type(WorldType.LARGE_BIOMES);
+							else
+								cr.type(WorldType.NORMAL);
+							
+							boolean structures=true;
+							
+							if(args[3].equalsIgnoreCase("false"))
+								structures=false;
+							
+							cr.generateStructures(structures);
+							cr.createWorld();
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: World successfully created. Use /world tp "+args[2]+" to join world.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					else if(args.length==3)
+					{
+						if(args[0].equalsIgnoreCase("tp"))
+						{
+							Player pl = Bukkit.getPlayer(args[2]);
+							if(Bukkit.getOnlinePlayers().contains(pl))
+							{
+								pl.teleport(Bukkit.getWorld(args[1]).getSpawnLocation());
+								return true;
+							}
+							else
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					else if(args.length==2)
+					{
+						if(args[0].equalsIgnoreCase("tp"))
+						{
+							p.teleport(Bukkit.getWorld(args[1]).getSpawnLocation());
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
 				if(c.getName().equalsIgnoreCase("firework"))
 				{
 					Firework fire = p.getWorld().spawn(p.getLocation(), Firework.class);
@@ -516,6 +975,104 @@ public class Plugin extends JavaPlugin implements Listener {
 					fire.setFireworkMeta(data);
 					return true;
 					
+				}
+				if(c.getName().equalsIgnoreCase("textconfig"))
+				{
+					if(args.length>2)
+					{
+						if(args[0].equalsIgnoreCase("add"))
+						{
+							if(!getConfig().getBoolean("customtext."+args[1]+".active"))
+							{
+								String text="";
+								for(int i=2;i<args.length;i++)
+								{
+									text+=args[i]+" ";
+								}
+								getConfig().set("customtext."+args[1]+".text", colorize(text));
+								getConfig().set("customtext."+args[1]+".active", true);
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been successfully setup '"+args[1]+"' text.");
+								saveConfig();
+								return true;
+							}
+							else
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Text with this name exists.");
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					if(args.length==2)
+					{
+						if(args[0].equalsIgnoreCase("remove"))
+						{
+							if(getConfig().getBoolean("customtext."+args[1]+".active"))
+							{
+								getConfig().set("customtext."+args[1]+".active", false);
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been successfully remove '"+args[1]+"' text.");
+								saveConfig();
+								return true;
+							}
+							else
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Text with this name not found.");
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+				}
+				if(c.getName().equalsIgnoreCase("customtext"))
+				{
+					if(args.length==2)
+					{
+						if(args[0].equalsIgnoreCase("set"))
+						{
+							if(getConfig().getBoolean("customtext."+args[1]+".active"))
+							{
+								if(!getConfig().getBoolean("customtext."+args[1]+".haveEntity"))
+								{
+									ArmorStand text = (ArmorStand) p.getWorld().spawnEntity(p.getLocation(), EntityType.ARMOR_STAND);
+									text.setCustomName(getConfig().getString("customtext."+args[1]+".text"));
+									text.setCustomNameVisible(true);
+									text.setVisible(false);
+									text.setAI(false);
+									text.setGravity(false);
+									text.setInvulnerable(true);
+								
+									UUID uid=text.getUniqueId();
+									String uuid = uid.toString();
+								
+									getConfig().set("customtext."+args[1]+".UUID", uuid);
+									getConfig().set("customtext."+args[1]+".haveEntity", true);
+									saveConfig();
+									return true;
+								}
+								else
+									p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "This custom text exists.");
+							}
+							else
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Text not found. Try /textconfig add "+args[1]+" <text>.");
+						}
+						else if(args[0].equalsIgnoreCase("remove"))
+						{
+							if(getConfig().getBoolean("customtext."+args[1]+".haveEntity"))
+							{
+								ArmorStand text = (ArmorStand) Bukkit.getEntity(UUID.fromString(getConfig().getString("customtext."+args[1]+".UUID")));
+								text.setCustomName(" ");
+								text.setCustomNameVisible(false);
+								
+								getConfig().set("customtext."+args[1]+".haveEntity", false);
+								saveConfig();
+								return true;
+							}
+							else
+								p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Text not found.");
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
 				}
 				if(c.getName().equalsIgnoreCase("bansh"))
 				{
@@ -763,6 +1320,43 @@ public class Plugin extends JavaPlugin implements Listener {
 					Bukkit.broadcastMessage(message);
 					return true;
 				}
+				if(c.getName().equalsIgnoreCase("delwarp"))
+				{
+					if(getConfig().getBoolean("warps."+args[0]+".done"))
+					{
+						getConfig().set("warps."+args[0]+".done", false);
+						
+						String warplist=getConfig().getString("warplist");
+						warplist=warplist.replace(args[0] + ", ", "");
+						
+						getConfig().set("warplist", warplist);
+						saveConfig();
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been succesfully delete warp.");
+						return true;
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Warp with this name exists.");
+				}
+				if(c.getName().equalsIgnoreCase("setwarp"))
+				{
+					if(!getConfig().getBoolean("warps."+args[0]+".done"))
+					{
+						getConfig().set("warps."+args[0]+".x", p.getLocation().getX());
+						getConfig().set("warps."+args[0]+".y", p.getLocation().getY());
+						getConfig().set("warps."+args[0]+".z", p.getLocation().getZ());
+						getConfig().set("warps."+args[0]+".world", p.getLocation().getWorld().getName());
+						getConfig().set("warps."+args[0]+".done", true);
+						
+						String warplist=getConfig().getString("warplist");
+						
+						getConfig().set("warplist", warplist + args[0] + ", ");
+						saveConfig();
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been succesfully set up warp.");
+						return true;
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Warp with this name exists.");
+				}
 				if(c.getName().equalsIgnoreCase("exec"))
 				{
 					if(args.length >= 3 && args[0].equalsIgnoreCase("msg"))
@@ -818,7 +1412,7 @@ public class Plugin extends JavaPlugin implements Listener {
 						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
 					}
 				}
-				if(c.getName().equalsIgnoreCase("broadcast"))
+				if(c.getName().equalsIgnoreCase("broadcast") || c.getName().equalsIgnoreCase("bc"))
 				{
 					if(p.isOp())
 					{
@@ -928,6 +1522,36 @@ public class Plugin extends JavaPlugin implements Listener {
 				p.sendMessage(ChatColor.AQUA + "Result is: " + ChatColor.BOLD + (i/j));
 				return true;
 			}
+			if(c.getName().equalsIgnoreCase("warps"))
+			{
+				if(getConfig().getString("warplist").length()>0)
+					p.sendMessage(ChatColor.BLUE + "Warps: " + ChatColor.GREEN + getConfig().getString("warplist").substring(0,getConfig().getString("warplist").length()-2));
+				else
+					p.sendMessage(ChatColor.BLUE + "No warps.");
+				return true;
+			}
+			if(c.getName().equalsIgnoreCase("warp"))
+			{
+				if(args.length==1)
+				{
+					if(getConfig().getBoolean("warps."+args[0]+".done"))
+					{
+						double x = getConfig().getDouble("warps."+args[0]+".x");
+						double y = getConfig().getDouble("warps."+args[0]+".y");
+						double z = getConfig().getDouble("warps."+args[0]+".z");
+						String wName = getConfig().getString("warps."+args[0]+".world");
+						World world = Bukkit.getWorld(wName);
+						Block b = world.getBlockAt((int)x, (int)y, (int)z);
+						Location location = b.getLocation();
+						p.teleport(location);
+						return true;
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Warp not found.");
+				}
+				else
+					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+			}
 			if(c.getName().equalsIgnoreCase("status"))
 			{
 				if(args[0].equalsIgnoreCase("set"))
@@ -953,6 +1577,88 @@ public class Plugin extends JavaPlugin implements Listener {
 					}
 					else
 						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Player not found.");
+				}
+				else
+					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+			}
+			if(c.getName().equalsIgnoreCase("home"))
+			{
+				if(args.length==1)
+				{
+					if(getConfig().getBoolean(p.getName()+".homes."+args[0]+".done"))
+					{
+						double x = getConfig().getDouble(p.getName()+".homes."+args[0]+".x");
+						double y = getConfig().getDouble(p.getName()+".homes."+args[0]+".y");
+						double z = getConfig().getDouble(p.getName()+".homes."+args[0]+".z");
+						String wName = getConfig().getString(p.getName()+".homes."+args[0]+".world");
+						World world = Bukkit.getWorld(wName);
+						
+						Block block = world.getBlockAt((int)Math.floor(x), (int)Math.floor(y), (int)Math.floor(z));
+						Location location = block.getLocation();
+						
+						p.teleport(location);
+						return true;
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Home not found.");
+				}
+				else
+					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+			}
+			if(c.getName().equalsIgnoreCase("delhome"))
+			{
+				if(args.length==1)
+				{
+					if(getConfig().getBoolean(p.getName()+".homes."+args[0]+".done"))
+					{
+						getConfig().set(p.getName()+".homes."+args[0]+".done", false);
+						
+						int totalHomes = getConfig().getInt(p.getName()+".homeCount");
+						totalHomes--;
+						getConfig().set(p.getName()+".homeCount", totalHomes);
+						saveConfig();
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been succesfully delete your home.");
+						return true;
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Home not found.");
+				}
+				else
+					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+			}
+			if(c.getName().equalsIgnoreCase("ANSII"))
+			{
+				String splt = splitArray(args, true);
+				p.sendMessage(ChatColor.GRAY + IntCoder.code(splt));
+				return true;
+			}
+			if(c.getName().equalsIgnoreCase("sethome"))
+			{
+				if(args.length==1)
+				{
+					if(!getConfig().getBoolean(p.getName()+".homes."+args[0]+".done"))
+					{
+						int totalHomes = getConfig().getInt(p.getName()+".homeCount");
+						if(totalHomes<getConfig().getInt("maxHomes"))
+						{
+							getConfig().set(p.getName()+".homes."+args[0]+".x", p.getLocation().getX());
+							getConfig().set(p.getName()+".homes."+args[0]+".y", p.getLocation().getY());
+							getConfig().set(p.getName()+".homes."+args[0]+".z", p.getLocation().getZ());
+							getConfig().set(p.getName()+".homes."+args[0]+".world", p.getWorld().getName());
+							getConfig().set(p.getName()+".homes."+args[0]+".done", true);
+						
+							totalHomes++;
+							getConfig().set(p.getName()+".homeCount", totalHomes);
+						
+							saveConfig();
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.GREEN + "Success: You has been succesfully set up your home.");
+							return true;
+						}
+						else
+							p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Your have to many homes.");
+					}
+					else
+						p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Your home with this name exists.");
 				}
 				else
 					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
@@ -1031,6 +1737,18 @@ public class Plugin extends JavaPlugin implements Listener {
 				}
 				else
 					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
+			}
+			if(c.getName().equalsIgnoreCase("encode"))
+			{
+				String w = splitArray(args, true);
+				
+				p.sendMessage(encode(w));
+				return true;
+			}
+			if(c.getName().equalsIgnoreCase("decode"))
+			{
+				p.sendMessage(decode(args[0]));
+				return true;
 			}
 			if(c.getName().equalsIgnoreCase("java"))
 			{
@@ -1187,7 +1905,7 @@ public class Plugin extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent e)
-	{
+	{	
 		Player p = e.getPlayer();
 		Location f = e.getFrom();
 		Location t = e.getTo();
@@ -1204,6 +1922,8 @@ public class Plugin extends JavaPlugin implements Listener {
 			p.getWorld().createExplosion(loc.getX(), loc.getY(), loc.getZ(),2,false,false);
 			r.setType(Material.AIR);
 		}
+		
+		removeAFK(p);
 	}
 	
 	@EventHandler
@@ -1261,6 +1981,7 @@ public class Plugin extends JavaPlugin implements Listener {
 		meta.setOwner(e.getEntity().getName());
 		skull.setItemMeta(meta);
 		e.getEntity().getWorld().dropItem(e.getEntity().getLocation(), skull);
+		removeAFK((Player) e.getEntity());
 	}
 	
 	@EventHandler
@@ -1288,6 +2009,7 @@ public class Plugin extends JavaPlugin implements Listener {
 	{
 		if(e.getExited() instanceof Player)
 		{
+			removeAFK((Player) e.getExited());
 			if(e.getVehicle() instanceof Horse)
 			{
 				Player p = (Player) e.getExited();
