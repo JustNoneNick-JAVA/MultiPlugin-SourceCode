@@ -76,7 +76,6 @@ public class Plugin extends JavaPlugin implements Listener {
 	HashMap<String, String> suffix = new HashMap<>();
 	HashMap<String, String> status = new HashMap<>();*/
 	HashMap<String, World> worlds = new HashMap<>();
-<<<<<<< HEAD
 	
 	Timer timer;
 	
@@ -88,8 +87,6 @@ public class Plugin extends JavaPlugin implements Listener {
 			Bukkit.broadcastMessage(ChatColor.DARK_RED + p.getName() + ChatColor.GRAY + " isn't AFK anymore.");
 		}
 	}
-=======
->>>>>>> 798d737c09238e84cd46715705dc012c8b6de2cd
 	
 	public void onEnable()
 	{
@@ -101,7 +98,6 @@ public class Plugin extends JavaPlugin implements Listener {
 			getConfig().set("maxHomes", 6);
 			getConfig().set("warplist", "");
 			getConfig().set("configurated", true);
-<<<<<<< HEAD
 			getConfig().set("delay",80);
 			saveConfig();
 			
@@ -117,9 +113,7 @@ public class Plugin extends JavaPlugin implements Listener {
 			}
 			
 			Bukkit.broadcastMessage(ChatColor.GREEN + "All is OK.");
-=======
 			saveConfig();
->>>>>>> 798d737c09238e84cd46715705dc012c8b6de2cd
 		}
 		
 		Logger log = Logger.getLogger("Minecraft");
@@ -192,10 +186,6 @@ public class Plugin extends JavaPlugin implements Listener {
 				getConfig().set(p.getName()+".chat.advanced", false);
 			getConfig().set(p.getName()+".ok", true);
 			getConfig().set(p.getName()+".homeCount", 0);
-<<<<<<< HEAD
-			
-=======
->>>>>>> 798d737c09238e84cd46715705dc012c8b6de2cd
 			saveConfig();
 			
 			p.sendMessage(ChatColor.AQUA + "You've been teleported to spawn!");
@@ -617,7 +607,6 @@ public class Plugin extends JavaPlugin implements Listener {
 			}
 			if(p.isOp())
 			{
-<<<<<<< HEAD
 				if(c.getName().equalsIgnoreCase("JNNJHL"))
 				{
 					new JNNJHL().start(args[0]);
@@ -918,8 +907,6 @@ public class Plugin extends JavaPlugin implements Listener {
 						return true;
 					}
 				}
-=======
->>>>>>> 798d737c09238e84cd46715705dc012c8b6de2cd
 				if(c.getName().equalsIgnoreCase("world"))
 				{
 					if(args.length==4)
@@ -1639,15 +1626,12 @@ public class Plugin extends JavaPlugin implements Listener {
 				else
 					p.sendMessage(ChatColor.BLUE + "[MultiPlugin] " + ChatColor.DARK_RED + "Error: " + ChatColor.RED + "Invalid usage of arguments.");
 			}
-<<<<<<< HEAD
 			if(c.getName().equalsIgnoreCase("ANSII"))
 			{
 				String splt = splitArray(args, true);
 				p.sendMessage(ChatColor.GRAY + IntCoder.code(splt));
 				return true;
 			}
-=======
->>>>>>> 798d737c09238e84cd46715705dc012c8b6de2cd
 			if(c.getName().equalsIgnoreCase("sethome"))
 			{
 				if(args.length==1)
